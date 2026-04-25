@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>GBF編成・素材シミュレータ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-900 text-white">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        // 最新の武器データベース例
+        const WEAPONS = [
+            { id: 1, name: "シュレディンガー", type: "レヴァンス", info: "奥義与ダメ/特殊上限", revans: true },
+            { id: 2, name: "セッテ・ディ・スパーダ", type: "レヴァンス", info: "剣レゾナンス/攻撃UP", revans: true },
+            { id: 3, name: "永遠拒絶の剣", type: "終末", info: "超越Lv250可能", opus: true },
+            { id: 4, name: "クレド銃", type: "マグナ3", info: "Mブースト/技巧/攻刃", m3: true },
+            { id: 5, name: "フルーレ・マグナ", type: "マグナ3", info: "Mブースト/星醒/攻刃", m3: true }
+        ];
+
+        function App() {
+            const [grid, setGrid] = useState(Array(10).fill(null));
+            const [mats, setMats] = useState({ revans: 0, sands: 0 }); // 修正箇所
+
+            const updateCalc = (newGrid) => {
+                const revansNum = newGrid.filter(w => w?.revans).length;
+                const opusNum = newGrid.filter(w => w?.opus).length;
+                setMats({
+                    revans: revansNum * 775, // 4凸〜覚醒Lv20までの合計 [1]
+                    sands: opusNum * 1        // 終末超越250に必要な砂
+                });
+            };
+
+            const addWp = (wp, i) => {
+                const n = [...grid]; n[i] = wp;
+                setGrid(n); updateCalc(n);
+            };
+
+            return (
+                <div className="p-6 max-w-5xl mx-auto">
+                    <h1 className="text-2xl font-bold mb-6 text-blue-400">GBF編成・素材シミュレータ V2</h1>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="md:col-span-2">
+                            <h2 className="mb-2 text-sm text-slate-400">武器グリッド（クリックで外す）</h2>
+                            <div className="grid grid-cols-5 gap-2 bg-slate-800 p-4 rounded">
+                                {grid.map((w, i) => (
+                                    <div key={i} onClick={() => addWp(null, i)} className="h-20 bg-slate-700 border border-slate-600 rounded flex items-center justify-center text-[10px] p-1 text-center cursor-pointer hover:bg-red-900">
+                                        {w? w.name : "EMPTY"}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-800 p-4 rounded border border-blue-900">
+                            <h2 className="text-lg font-bold mb-4">必要素材合計</h2>
+                            <div className="text-sm space-y-2">
+                                <div className="flex justify-between"><span>レヴァンス素材:</span><span className="text-orange-400 font-mono text-lg">{mats.revans}個</span></div>
+                                <div className="flex justify-between"><span>刻の流砂:</span><span className="text-blue-300 font-mono text-lg">{mats.sands}個</span></div>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-4 leading-tight">※レヴァンスはリビルドLv20完成までの数値</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-8">
+                        <h2 className="mb-4 text-slate-300">武器ライブラリ（最新マグナ3対応）</h2>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {WEAPONS.map(w => (
+                                <button key={w.id} onClick={() => {
+                                    const idx = grid.findIndex(s => s === null);
+                                    if(idx!== -1) addWp(w, idx);
+                                }} className="bg-slate-700 p-2 rounded text-left text-xs hover:bg-blue-600">
+                                    <div className="font-bold text-slate-100">{w.name}</div>
+                                    <div className="text-slate-400">{w.type}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

@@ -2,82 +2,114 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>GBF編成・素材シミュレータ</title>
+    <title>GBF編成シミュレータ V4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-slate-900 text-white">
+<body class="bg-slate-950 text-slate-200">
     <div id="root"></div>
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useMemo } = React;
 
-        // 最新の武器データベース例
-        const WEAPONS = [
-            { id: 1, name: "シュレディンガー", type: "レヴァンス", info: "奥義与ダメ/特殊上限", revans: true },
-            { id: 2, name: "セッテ・ディ・スパーダ", type: "レヴァンス", info: "剣レゾナンス/攻撃UP", revans: true },
-            { id: 3, name: "永遠拒絶の剣", type: "終末", info: "超越Lv250可能", opus: true },
-            { id: 4, name: "クレド銃", type: "マグナ3", info: "Mブースト/技巧/攻刃", m3: true },
-            { id: 5, name: "フルーレ・マグナ", type: "マグナ3", info: "Mブースト/星醒/攻刃", m3: true }
+        const WEAPON_DB = [
+            // マグナ3
+            { id: "m3_1", name: "クレド銃", type: "銃", element: "光", skill: "Mブースト/技巧/攻刃", atk: 2850, mod: "Omega" },
+            { id: "m3_2", name: "フルーレ・マグナ", type: "剣", element: "水", skill: "Mブースト/星醒/攻刃", atk: 2700, mod: "Omega" },
+            // レヴァンス
+            { id: "rev_1", name: "シュレディンガー", type: "刀", element: "水", skill: "奥義与ダメ/特殊上限", atk: 3100, mod: "Omega", canAwake: true },
+            { id: "rev_2", name: "セッテ・ディ・スパーダ", type: "剣", element: "風", skill: "剣レゾナンス/攻撃UP", atk: 2950, mod: "EX", canAwake: true },
+            { id: "rev_3", name: "シンメトリア", type: "刀", element: "光", skill: "技錬/堅守", atk: 3050, mod: "Normal", canAwake: true },
+            // 終末・超越
+            { id: "opus", name: "絶対否定の剣(超越)", type: "剣", element: "火", skill: "神石加護/与ダメUP", atk: 4200, mod: "Normal" },
+            { id: "opus_m", name: "永遠拒絶の剣(超越)", type: "剣", element: "火", skill: "マグナ加護/与ダメUP", atk: 4200, mod: "Omega" },
+            // その他
+            { id: "wld_1", name: "極星剣", type: "剣", element: "全", skill: "極星の煌き/攻刃", atk: 3500, mod: "EX" },
+            { id: "baha_1", name: "バハムートソード・フツルス", type: "剣", element: "闇", skill: "コンプレックス・マイト", atk: 3350, mod: "Normal" }
         ];
 
         function App() {
-            const [grid, setGrid] = useState(Array(10).fill(null));
-            const [mats, setMats] = useState({ revans: 0, sands: 0 }); // 修正箇所
+            const [grid, setGrid] = useState(Array(10).fill(null).map((_, i) => ({ weapon: null, awake: "攻撃", lv: 200 })));
+            const = useState({ hp: 100, mainAura: 170, subAura: 170 });
 
-            const updateCalc = (newGrid) => {
-                const revansNum = newGrid.filter(w => w?.revans).length;
-                const opusNum = newGrid.filter(w => w?.opus).length;
-                setMats({
-                    revans: revansNum * 775, // 4凸〜覚醒Lv20までの合計 [1]
-                    sands: opusNum * 1        // 終末超越250に必要な砂
+            const results = useMemo(() => {
+                let baseAtk = 0;
+                let normBoost = 0, omegaBoost = 0, exBoost = 0;
+                
+                grid.forEach(s => {
+                    if (!s.weapon) return;
+                    baseAtk += s.weapon.atk;
+                    const auraMult = (1 + (s.weapon.mod === "Normal"? settings.mainAura : settings.mainAura) / 100);
+                    if (s.weapon.mod === "Normal") normBoost += 0.2; // 簡易計算用
+                    if (s.weapon.mod === "Omega") omegaBoost += 0.2;
+                    if (s.weapon.mod === "EX") exBoost += 0.25;
                 });
-            };
 
-            const addWp = (wp, i) => {
-                const n = [...grid]; n[i] = wp;
-                setGrid(n); updateCalc(n);
-            };
+                // 最新計算式: Divisor 17500 
+                const rawAtk = Math.floor((1 + baseAtk / 17500) * (1 + normBoost) * (1 + omegaBoost) * (1 + exBoost) * 1000);
+                return { rawAtk };
+            }, [grid, settings]);
 
             return (
-                <div className="p-6 max-w-5xl mx-auto">
-                    <h1 className="text-2xl font-bold mb-6 text-blue-400">GBF編成・素材シミュレータ V2</h1>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="md:col-span-2">
-                            <h2 className="mb-2 text-sm text-slate-400">武器グリッド（クリックで外す）</h2>
-                            <div className="grid grid-cols-5 gap-2 bg-slate-800 p-4 rounded">
-                                {grid.map((w, i) => (
-                                    <div key={i} onClick={() => addWp(null, i)} className="h-20 bg-slate-700 border border-slate-600 rounded flex items-center justify-center text-[10px] p-1 text-center cursor-pointer hover:bg-red-900">
-                                        {w? w.name : "EMPTY"}
-                                    </div>
+                <div className="max-w-6xl mx-auto p-6">
+                    <nav className="flex gap-4 mb-8 text-sm border-b border-slate-800 pb-4">
+                        <a href="index.html" className="text-blue-400 font-bold border-b-2 border-blue-400">編成シミュレータ</a>
+                        <a href="materials.html" className="text-slate-500 hover:text-slate-300 transition">素材計算機</a>
+                    </nav>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* 左：設定パネル */}
+                        <div className="lg:col-span-3 space-y-6 bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h2 className="font-bold text-blue-300">環境設定</h2>
+                            <div>
+                                <label className="text-[10px] block mb-1">残りHP: {settings.hp}%</label>
+                                <input type="range" className="w-full" value={settings.hp} onChange={e => setSettings({...settings, hp: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] block mb-1">加護 (メイン/フレ): {settings.mainAura}%</label>
+                                <select className="bg-slate-800 w-full p-1 text-xs rounded" value={settings.mainAura} onChange={e => setSettings({...settings, mainAura: Number(e.target.value)})}>
+                                    <option value="170">神石/マグナ超越(170%)</option>
+                                    <option value="150">5凸(150%)</option>
+                                    <option value="0">加護なし</option>
+                                </select>
+                            </div>
+                            <div className="pt-4 border-t border-slate-800 text-center">
+                                <p className="text-[10px] text-slate-500">予測RAW攻撃力</p>
+                                <p className="text-3xl font-mono text-blue-400">{results.rawAtk.toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        {/* 中：武器グリッド */}
+                        <div className="lg:col-span-6 grid grid-cols-2 md:grid-cols-5 gap-2">
+                            {grid.map((s, i) => (
+                                <div key={i} onClick={() => {if(s.weapon) {const n=[...grid]; n[i].weapon=null; setGrid(n);}}} className={`h-28 border rounded transition-all cursor-pointer flex flex-col p-2 ${s.weapon? 'bg-slate-800 border-blue-500/50' : 'bg-slate-900/30 border-slate-800 border-dashed hover:bg-slate-800'}`}>
+                                    <span className="text-[8px] text-slate-600">SLOT {i+1}</span>
+                                    {s.weapon? (
+                                        <div className="flex-1 flex flex-col justify-between">
+                                            <div className="text-[10px] font-bold leading-tight line-clamp-2">{s.weapon.name}</div>
+                                            {s.weapon.canAwake && (
+                                                <select onClick={e=>e.stopPropagation()} className="bg-slate-700 text-[9px] rounded px-1 mt-1 outline-none" value={s.awake} onChange={e => {const n=[...grid]; n[i].awake=e.target.value; setGrid(n);}}>
+                                                    <option>攻撃</option><option>防御</option><option>特殊</option>
+                                                </select>
+                                            )}
+                                        </div>
+                                    ) : <div className="flex-1 flex items-center justify-center text-[10px] text-slate-700">EMPTY</div>}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* 右：武器リスト */}
+                        <div className="lg:col-span-3 bg-slate-900 p-4 rounded-xl border border-slate-800 h-[600px] overflow-y-auto">
+                            <h2 className="font-bold text-green-400 mb-4 text-sm">武器ライブラリ</h2>
+                            <div className="space-y-2">
+                                {WEAPON_DB.map(w => (
+                                    <button key={w.id} onClick={() => {const idx=grid.findIndex(s=>!s.weapon); if(idx!==-1){const n=[...grid]; n[idx].weapon=w; setGrid(n);}}} className="w-full text-left p-2 bg-slate-800 hover:bg-blue-900 rounded border border-slate-700 transition-colors">
+                                        <div className="text-xs font-bold">{w.name}</div>
+                                        <div className="text-[9px] text-slate-500">{w.element} / {w.type}</div>
+                                    </button>
                                 ))}
                             </div>
-                        </div>
-
-                        <div className="bg-slate-800 p-4 rounded border border-blue-900">
-                            <h2 className="text-lg font-bold mb-4">必要素材合計</h2>
-                            <div className="text-sm space-y-2">
-                                <div className="flex justify-between"><span>レヴァンス素材:</span><span className="text-orange-400 font-mono text-lg">{mats.revans}個</span></div>
-                                <div className="flex justify-between"><span>刻の流砂:</span><span className="text-blue-300 font-mono text-lg">{mats.sands}個</span></div>
-                            </div>
-                            <p className="text-[10px] text-slate-500 mt-4 leading-tight">※レヴァンスはリビルドLv20完成までの数値</p>
-                        </div>
-                    </div>
-
-                    <div className="mt-8">
-                        <h2 className="mb-4 text-slate-300">武器ライブラリ（最新マグナ3対応）</h2>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            {WEAPONS.map(w => (
-                                <button key={w.id} onClick={() => {
-                                    const idx = grid.findIndex(s => s === null);
-                                    if(idx!== -1) addWp(w, idx);
-                                }} className="bg-slate-700 p-2 rounded text-left text-xs hover:bg-blue-600">
-                                    <div className="font-bold text-slate-100">{w.name}</div>
-                                    <div className="text-slate-400">{w.type}</div>
-                                </button>
-                            ))}
                         </div>
                     </div>
                 </div>
